@@ -365,6 +365,28 @@ st.session_state["openings_df"] = edited_df
 # CALCULATION FUNCTION
 # ============================================================
 def calculate_for_row(row: pd.Series) -> pd.Series:
+    # If mandatory numeric fields are missing, return a "check inputs" row instead of crashing
+    if pd.isna(row.get("Width_mm")) or pd.isna(row.get("Height_mm")) or pd.isna(row.get("Doors")):
+        return pd.Series({
+            "Door_Height_mm": None,
+            "Door_Width_mm": None,
+            "Doors_Used": None,
+            "Dropdown_Height_mm": None,
+            "Recommended_Dropdown_Height_mm": None,
+            "Side_Liner_Thickness_mm": None,
+            "Required_Buildout_Per_Side_mm": None,
+            "Net_Width_mm": None,
+            "Door_Span_mm": None,
+            "Overlap_Tolerance_mm": None,
+            "Span_Diff_mm": None,
+            "Bottom_Liner_Length_mm": None,
+            "Side_Liner_Length_mm": None,
+            "Dropdown_Length_mm": None,
+            "Trackset_Tolerance_mm": TRACKSET_TOLERANCE,
+            "Height_Status": "Missing input(s)",
+            "Issue": "🔴 Check inputs",
+        })
+
     # Basic validation / clamping
     width = max(float(row["Width_mm"]), 1)
     height = max(float(row["Height_mm"]), 1)
@@ -566,8 +588,8 @@ if len(edited_df) > 0:
 
     if not all(str(s).startswith("OK") for s in results_df["Height_Status"]):
         st.warning(
-            "Some openings exceed height limits or need a different / larger dropdown to fit perfectly "
-            "(after allowing for bottom liners and 54mm trackset tolerance)."
+            "Some openings exceed height limits, are missing data, or need a different / larger dropdown to fit "
+            "perfectly (after allowing for bottom liners and 54mm trackset tolerance)."
         )
 
     # CSV download
@@ -595,7 +617,7 @@ if len(edited_df) > 0:
     row = results_df.iloc[idx]
 
     # Build dropdown label for the top of the wardrobe
-    dropdown_height_int = int(row["Dropdown_Height_mm"])
+    dropdown_height_int = int(row["Dropdown_Height_mm"]) if pd.notna(row["Dropdown_Height_mm"]) else 0
     dropdown_label = ""
 
     if row["Door_System"] == "Made to measure doors":
@@ -620,11 +642,11 @@ if len(edited_df) > 0:
         opening_width_mm=row["Width_mm"],
         opening_height_mm=row["Height_mm"],
         bottom_thk_mm=BOTTOM_LINER_THICKNESS,
-        side_thk_mm=row["Side_Liner_Thickness_mm"],
-        dropdown_height_mm=row["Dropdown_Height_mm"],
-        door_height_mm=row["Door_Height_mm"],
-        num_doors=row["Doors_Used"],
-        door_width_mm=row["Door_Width_mm"],
+        side_thk_mm=row["Side_Liner_Thickness_mm"] if pd.notna(row["Side_Liner_Thickness_mm"]) else 0,
+        dropdown_height_mm=row["Dropdown_Height_mm"] if pd.notna(row["Dropdown_Height_mm"]) else 0,
+        door_height_mm=row["Door_Height_mm"] if pd.notna(row["Door_Height_mm"]) else 0,
+        num_doors=row["Doors_Used"] if pd.notna(row["Doors_Used"]) else 1,
+        door_width_mm=row["Door_Width_mm"] if pd.notna(row["Door_Width_mm"]) else 0,
         dropdown_label=dropdown_label,
     )
 
@@ -677,31 +699,41 @@ if len(edited_df) > 0:
                     "(auto-calculated)"
                 )
         st.write("---")
-        st.write(f"**Number of doors:** {int(row['Doors_Used'])}")
-        st.write(f"**Door height:** {int(row['Door_Height_mm'])} mm")
-        st.write(f"**Door width (each):** {int(row['Door_Width_mm'])} mm")
-        st.write(f"**Door span (total):** {int(row['Door_Span_mm'])} mm")
-        st.write(f"**Net opening width (between liners):** {int(row['Net_Width_mm'])} mm")
-        st.write(f"**Side liner thickness (each):** {row['Side_Liner_Thickness_mm']} mm")
-        st.write(
-            f"**Required liner build-out per side:** "
-            f"{row['Required_Buildout_Per_Side_mm']} mm (above 18mm default)"
-        )
-        st.write(f"**Total overlap / tolerance:** {int(row['Overlap_Tolerance_mm'])} mm")
-        if row["Door_System"] == "Fixed 2223mm doors":
+        if pd.notna(row["Doors_Used"]):
+            st.write(f"**Number of doors:** {int(row['Doors_Used'])}")
+        if pd.notna(row["Door_Height_mm"]):
+            st.write(f"**Door height:** {int(row['Door_Height_mm'])} mm")
+        if pd.notna(row["Door_Width_mm"]):
+            st.write(f"**Door width (each):** {int(row['Door_Width_mm'])} mm")
+        if pd.notna(row["Door_Span_mm"]):
+            st.write(f"**Door span (total):** {int(row['Door_Span_mm'])} mm")
+        if pd.notna(row["Net_Width_mm"]):
+            st.write(f"**Net opening width (between liners):** {int(row['Net_Width_mm'])} mm")
+        if pd.notna(row["Side_Liner_Thickness_mm"]):
+            st.write(f"**Side liner thickness (each):** {row['Side_Liner_Thickness_mm']} mm")
+        if pd.notna(row["Required_Buildout_Per_Side_mm"]):
+            st.write(
+                f"**Required liner build-out per side:** "
+                f"{row['Required_Buildout_Per_Side_mm']} mm (above 18mm default)"
+            )
+        if pd.notna(row["Overlap_Tolerance_mm"]):
+            st.write(f"**Total overlap / tolerance:** {int(row['Overlap_Tolerance_mm'])} mm")
+        if row["Door_System"] == "Fixed 2223mm doors" and pd.notna(row["Span_Diff_mm"]):
             st.write(
                 f"**Span difference (door span - (net + tolerance)):** "
                 f"{row['Span_Diff_mm']} mm"
             )
-        st.write(f"**Trackset tolerance allowed:** {int(row['Trackset_Tolerance_mm'])} mm")
-        st.write(
-            f"**Height components (effective):** "
-            f"{BOTTOM_LINER_THICKNESS}mm bottom liners + "
-            f"{int(row['Trackset_Tolerance_mm'])}mm trackset tolerance + "
-            f"{int(row['Dropdown_Height_mm'])}mm dropdown + "
-            f"{int(row['Door_Height_mm'])}mm door"
-        )
-        st.write(f"**Dropdown height (used in calc):** {int(row['Dropdown_Height_mm'])} mm")
+        st.write(f"**Trackset tolerance allowed:** {int(row['Trackset_TOLERANCE_mm']) if 'Trackset_TOLERANCE_mm' in row else TRACKSET_TOLERANCE} mm")
+        if pd.notna(row["Door_Height_mm"]) and pd.notna(row["Dropdown_Height_mm"]):
+            st.write(
+                f"**Height components (effective):** "
+                f"{BOTTOM_LINER_THICKNESS}mm bottom liners + "
+                f"{TRACKSET_TOLERANCE}mm trackset tolerance + "
+                f"{int(row['Dropdown_Height_mm'])}mm dropdown + "
+                f"{int(row['Door_Height_mm'])}mm door"
+            )
+        if pd.notna(row["Dropdown_Height_mm"]):
+            st.write(f"**Dropdown height (used in calc):** {int(row['Dropdown_Height_mm'])} mm")
 
 else:
     st.info("Add at least one opening to calculate sizes and view diagrams.")
