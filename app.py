@@ -8,10 +8,10 @@ st.set_page_config(page_title="Wardrobe Multi-Opening Calculator", layout="wide"
 st.title("Wardrobe Door & Liner Calculator – Multi Opening")
 
 st.caption(
-    "Max door height 2500mm for custom doors. Per-opening dropdown options: 108mm, 90mm, 50mm, "
+    "Max door height 2431mm for made-to-measure doors. Per-opening dropdown options: 108mm, 90mm, 50mm, "
     "0mm (no dropdown), or a bespoke auto-calculated dropdown. Bottom liners are two 18mm boards "
     "(36mm total). There is an additional 54mm trackset tolerance that must be allowed within the "
-    "opening height. In custom mode, side liners are fixed at 18mm each. In fixed 2223mm door mode, "
+    "opening height. In made-to-measure mode, side liners are fixed at 18mm each. In fixed 2223mm door mode, "
     "you choose door width (610 / 762 / 914mm) and number of doors, and the system calculates the "
     "side liner thickness (build-out per side) to suit overlap tolerances (2 doors = 75mm, "
     "3+ doors = 150mm). One row = one opening. All dimensions in mm."
@@ -21,9 +21,9 @@ st.caption(
 # SYSTEM CONSTANTS
 # -----------------------------
 BOTTOM_LINER_THICKNESS = 36       # 2 x 18mm
-SIDE_LINER_THICKNESS = 18         # default side liner thickness (mm) for custom mode
+SIDE_LINER_THICKNESS = 18         # default side liner thickness (mm) for made-to-measure mode
 TRACKSET_TOLERANCE = 54           # extra allowance for trackset/hardware (mm)
-MAX_DOOR_HEIGHT = 2500
+MAX_DOOR_HEIGHT = 2431            # max made-to-measure door height
 MAX_DROPDOWN_LIMIT = 400          # absolute max dropdown allowed
 
 # Fixed door system
@@ -38,7 +38,7 @@ OVERLAP_TOLERANCES = {
 }
 DEFAULT_FIXED_OVERLAP_TOLERANCE = 150  # used for 5, 6, etc.
 
-# Per-opening top liner options (for custom mode, fixed sizes)
+# Per-opening top liner options (for made-to-measure mode, fixed sizes)
 TOP_LINER_OPTIONS = {
     "108mm Dropdown": 108,
     "90mm Dropdown": 90,
@@ -49,12 +49,12 @@ TOP_LINER_OPTIONS = {
 # Label for bespoke option
 BESPOKE_DROPDOWN_LABEL = "Bespoke dropdown (auto)"
 
-# Custom door overlap (per meeting)
+# Made-to-measure door overlap (per meeting)
 CUSTOM_DOOR_OVERLAP_MM = 25
 
 # Door system options
 DOOR_SYSTEM_OPTIONS = [
-    "Custom (calculated panels)",
+    "Made to measure doors",
     "Fixed 2223mm doors",
 ]
 
@@ -294,9 +294,9 @@ DEFAULT_DATA = pd.DataFrame([
         "Width_mm": 2200,
         "Height_mm": 2600,
         "Doors": 3,
-        "Door_System": "Custom (calculated panels)",
+        "Door_System": "Made to measure doors",
         "Top_Liner_Option": "108mm Dropdown",
-        "Fixed_Door_Width_mm": 762,   # ignored in custom mode
+        "Fixed_Door_Width_mm": 762,   # ignored in made-to-measure mode
     },
 ])
 
@@ -309,11 +309,11 @@ if "openings_df" not in st.session_state:
 st.sidebar.subheader("System constants")
 st.sidebar.write(f"Bottom liners total: **{BOTTOM_LINER_THICKNESS} mm**")
 st.sidebar.write(f"Trackset tolerance: **{TRACKSET_TOLERANCE} mm** (headroom for trackset & framework)")
-st.sidebar.write(f"Side liners default: **{SIDE_LINER_THICKNESS} mm** each (custom mode)")
+st.sidebar.write(f"Side liners default: **{SIDE_LINER_THICKNESS} mm** each (made-to-measure mode)")
 st.sidebar.write("In fixed 2223mm mode, side liner thickness varies to suit door span + overlap tolerance.")
-st.sidebar.write(f"Max door height (custom): **{MAX_DOOR_HEIGHT} mm**")
+st.sidebar.write(f"Max made-to-measure door height: **{MAX_DOOR_HEIGHT} mm**")
 st.sidebar.write(f"Max dropdown allowed: **{MAX_DROPDOWN_LIMIT} mm**")
-st.sidebar.write("Top liner options for custom doors: 108mm, 90mm, 50mm, 0mm, or a bespoke auto-calculated dropdown.")
+st.sidebar.write("Top liner options for made-to-measure doors: 108mm, 90mm, 50mm, 0mm, or bespoke auto-calculated.")
 st.sidebar.write("Fixed door system: 2223mm high, widths 610 / 762 / 914mm (user selects).")
 st.sidebar.write("Fixed system overlap tolerances: 2 doors = 75mm, 3+ doors = 150mm.")
 
@@ -343,10 +343,10 @@ edited_df = st.data_editor(
         "Door_System": st.column_config.SelectboxColumn(
             "Door system",
             options=DOOR_SYSTEM_OPTIONS,
-            default="Custom (calculated panels)",
+            default="Made to measure doors",
         ),
         "Top_Liner_Option": st.column_config.SelectboxColumn(
-            "Top liner option (custom only)",
+            "Top liner option (made-to-measure only)",
             options=top_liner_choices,
             default="108mm Dropdown",
         ),
@@ -370,7 +370,7 @@ def calculate_for_row(row: pd.Series) -> pd.Series:
     height = max(float(row["Height_mm"]), 1)
     doors = max(int(row["Doors"]), 1)
 
-    door_system = row.get("Door_System", "Custom (calculated panels)")
+    door_system = row.get("Door_System", "Made to measure doors")
 
     if door_system == "Fixed 2223mm doors":
         # -------------------------
@@ -448,7 +448,7 @@ def calculate_for_row(row: pd.Series) -> pd.Series:
 
     else:
         # -------------------------
-        # CUSTOM CALCULATED MODE (side liners fixed at 18mm)
+        # MADE TO MEASURE MODE (side liners fixed at 18mm)
         # -------------------------
         side_liner_thk = SIDE_LINER_THICKNESS
         net_width = width - 2 * side_liner_thk
@@ -541,9 +541,9 @@ def calculate_for_row(row: pd.Series) -> pd.Series:
             "Required_Buildout_Per_Side_mm": 0.0,  # none, fixed at 18mm
             "Net_Width_mm": int(round(net_width)),
             "Door_Span_mm": int(round(door_span)),
-            # Here: total overlap for custom mode
+            # Here: total overlap for made-to-measure mode
             "Overlap_Tolerance_mm": int(round(total_overlap)),
-            "Span_Diff_mm": 0.0,                # not used in custom mode
+            "Span_Diff_mm": 0.0,                # not used in made-to-measure mode
             "Bottom_Liner_Length_mm": int(round(net_width)),
             "Side_Liner_Length_mm": int(round(height)),
             "Dropdown_Length_mm": int(round(net_width)),
@@ -598,7 +598,7 @@ if len(edited_df) > 0:
     dropdown_height_int = int(row["Dropdown_Height_mm"])
     dropdown_label = ""
 
-    if row["Door_System"] == "Custom (calculated panels)":
+    if row["Door_System"] == "Made to measure doors":
         if row["Top_Liner_Option"] == BESPOKE_DROPDOWN_LABEL:
             if dropdown_height_int > 0:
                 dropdown_label = f"BESPOKE {dropdown_height_int}mm DROPDOWN"
@@ -637,7 +637,7 @@ if len(edited_df) > 0:
 
         # Photo + caption box for fixed-size system
         if row["Door_System"] == "Fixed 2223mm doors":
-            # TODO: replace with a relative path or remove if not needed.
+            # NOTE: update this path to something relative to your app, or remove if not needed.
             st.markdown("**Fixed-size dropdown example**")
             st.image(
                 r"C:\Users\woolfendenj\Desktop\Wardrobe Calculator\Fixed Sized Dropdown.JPG",
