@@ -421,7 +421,7 @@ def calculate_for_row(row: pd.Series) -> pd.Series:
             dropdown_h = MAX_DROPDOWN_LIMIT
             height_status = (
                 f"Dropdown needed is {int(dropdown_h_raw)}mm – exceeds "
-                f"max allowed {MAX_DROPDOWN_LIMIT}mm (including {TRACKSET_TOLERANCE}mm trackset tolerance)."
+                f"max allowed {MAX_DROPDOWN_LIMIT}mm (includes {TRACKSET_TOLERANCE}mm trackset tolerance)."
             )
         else:
             dropdown_h = dropdown_h_raw
@@ -576,36 +576,27 @@ def calculate_for_row(row: pd.Series) -> pd.Series:
 
 
 # ============================================================
-# RESULTS TABLE
+# CALCULATE RESULTS (NO BIG TABLE)
 # ============================================================
-st.subheader("2. Calculated results")
-
 if len(edited_df) > 0:
     calcs = edited_df.apply(calculate_for_row, axis=1)
     results_df = pd.concat([edited_df.reset_index(drop=True), calcs], axis=1)
 
-    st.dataframe(results_df, use_container_width=True)
-
-    if not all(str(s).startswith("OK") for s in results_df["Height_Status"]):
-        st.warning(
-            "Some openings exceed height limits, are missing data, or need a different / larger dropdown to fit "
-            "perfectly (after allowing for bottom liners and 54mm trackset tolerance)."
-        )
-
-    # CSV download
+    # CSV download button
     csv = results_df.to_csv(index=False).encode("utf-8")
     st.download_button("Download CSV", csv, "wardrobe_results.csv", "text/csv")
 
-    # Optional: show only problematic rows below
-    problem_rows = results_df[results_df["Issue"] != "✅ OK"]
-    if not problem_rows.empty:
-        st.markdown("#### Openings to check")
-        st.dataframe(problem_rows, use_container_width=True)
+    # Height / data warnings
+    if not all(str(s).startswith("OK") for s in results_df["Height_Status"]):
+        st.warning(
+            "Some openings exceed height limits, have missing inputs, "
+            "or need a different dropdown height to fit properly."
+        )
 
     # ============================================================
-    # VISUALISATION
+    # VISUALISATION + NOTES
     # ============================================================
-    st.subheader("3. Visualise an opening")
+    st.subheader("2. Visualise an opening & see sizes")
 
     options = [
         f"{i}: {row['Job']} – {row['Opening']} ({row['Issue']}, {row['Door_System']})"
@@ -659,8 +650,8 @@ if len(edited_df) > 0:
 
         # Photo + caption box for fixed-size system
         if row["Door_System"] == "Fixed 2223mm doors":
-            # NOTE: update this path to something relative to your app, or remove if not needed.
             st.markdown("**Fixed-size dropdown example**")
+            # Update this path or remove image if not available on Streamlit Cloud
             st.image(
                 r"C:\Users\woolfendenj\Desktop\Wardrobe Calculator\Fixed Sized Dropdown.JPG",
                 use_column_width=True,
@@ -693,7 +684,7 @@ if len(edited_df) > 0:
         else:
             st.write(f"**Top liner option (input):** {row['Top_Liner_Option']}")
             st.write(f"**Per-meeting overlap (internal):** {CUSTOM_DOOR_OVERLAP_MM} mm")
-            if row["Top_Liner_Option"] == BESPOKE_DROPDOWN_LABEL:
+            if row["Top_Liner_Option"] == BESPOKE_DROPDOWN_LABEL and pd.notna(row["Dropdown_Height_mm"]):
                 st.write(
                     f"**Bespoke dropdown used in calc:** {int(row['Dropdown_Height_mm'])} mm "
                     "(auto-calculated)"
@@ -723,7 +714,9 @@ if len(edited_df) > 0:
                 f"**Span difference (door span - (net + tolerance)):** "
                 f"{row['Span_Diff_mm']} mm"
             )
-        st.write(f"**Trackset tolerance allowed:** {int(row['Trackset_TOLERANCE_mm']) if 'Trackset_TOLERANCE_mm' in row else TRACKSET_TOLERANCE} mm")
+
+        st.write(f"**Trackset tolerance allowed:** {TRACKSET_TOLERANCE} mm")
+
         if pd.notna(row["Door_Height_mm"]) and pd.notna(row["Dropdown_Height_mm"]):
             st.write(
                 f"**Height components (effective):** "
